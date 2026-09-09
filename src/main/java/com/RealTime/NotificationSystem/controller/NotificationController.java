@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class NotificationController {
 
     @MessageMapping("/sendMessage")
-    @SendTo("/topic/notification")
+    @SendTo("/topic/notifications")
     public String sendMessage(String message){
         return message;
     }
