@@ -11,7 +11,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
-public class MessageRequestDto {
+public class NotificationRequestDto {
 
     private String message;
 
