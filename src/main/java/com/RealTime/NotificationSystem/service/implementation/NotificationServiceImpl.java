@@ -19,8 +19,8 @@ public class NotificationServiceImpl implements NotificationService {
     @Override
     public String sendNotification(NotificationRequestDto notificationRequestDto) {
         Notification notification = notificationMapper.toNotification(notificationRequestDto);
-        NotificationResponseDto notificationResponseDto = notificationMapper.toNotificationResponseDto(notification);
         notificationRepository.save(notification);
+        NotificationResponseDto notificationResponseDto = notificationMapper.toNotificationResponseDto(notification);
         return notificationResponseDto.getMessage();
     }
 }
