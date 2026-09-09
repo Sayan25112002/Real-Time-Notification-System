@@ -2,37 +2,274 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Real-Time Notifications</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notification Center</title>
     <script src="https://cdn.jsdelivr.net/npm/sockjs-client/dist/sockjs.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/stompjs/lib/stomp.min.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            min-height: 100vh;
+            font-family: "Segoe UI", Arial, sans-serif;
+            background: linear-gradient(135deg, #eef2ff, #f8fafc);
+            color: #1e293b;
+            padding: 40px 20px;
+        }
+        .container {
+            max-width: 750px;
+            margin: auto;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+        }
+        .title-area h1 {
+            font-size: 30px;
+            color: #0f172a;
+        }
+        .title-area p {
+            margin-top: 6px;
+            color: #64748b;
+            font-size: 14px;
+        }
+        .status {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            padding: 8px 13px;
+            border-radius: 20px;
+            background: #fee2e2;
+            color: #b91c1c;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .status.connected {
+            background: #dcfce7;
+            color: #15803d;
+        }
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: currentColor;
+        }
+        .notification-container {
+            background: rgba(255, 255, 255, 0.95);
+            border: 1px solid #e2e8f0;
+            border-radius: 20px;
+            padding: 24px;
+            box-shadow: 0 15px 40px rgba(15, 23, 42, 0.07);
+        }
+        .notification-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .notification-header h2 {
+            font-size: 19px;
+        }
+        .count {
+            background: #eef2ff;
+            color: #4f46e5;
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 700;
+        }
+        #notifications {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .notification {
+            display: flex;
+            gap: 14px;
+            padding: 17px;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            background: #ffffff;
+            animation: notificationIn 0.35s ease;
+        }
+        .icon {
+            flex-shrink: 0;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 10px;
+            background: #eef2ff;
+            color: #4f46e5;
+            font-size: 19px;
+        }
+        .notification-content {
+            flex: 1;
+        }
+        .notification-message {
+            font-size: 14px;
+            line-height: 1.6;
+            color: #334155;
+        }
+        .notification-time {
+            margin-top: 6px;
+            color: #94a3b8;
+            font-size: 11px;
+        }
+        .empty {
+            text-align: center;
+            padding: 55px 20px;
+            color: #94a3b8;
+        }
+        .empty-icon {
+            font-size: 40px;
+            margin-bottom: 12px;
+        }
+        .empty p {
+            font-size: 14px;
+        }
+        @keyframes notificationIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @media (max-width: 600px) {
+            body {
+                padding: 20px 12px;
+            }
+            .header {
+                align-items: flex-start;
+                flex-direction: column;
+                gap: 15px;
+            }
+            .title-area h1 {
+                font-size: 25px;
+            }
+            .notification-container {
+                padding: 17px;
+            }
+        }
+    </style>
 </head>
 <body>
-<h1>Real-Time Notifications</h1>
-<div id="notifications"></div>
+<div class="container">
+    <div class="header">
+        <div class="title-area">
+            <h1>Notification Center</h1>
+            <p>Stay updated with the latest notifications.</p>
+        </div>
+        <div id="connectionStatus" class="status">
+            <span class="status-dot"></span>
+            Disconnected
+        </div>
+    </div>
+    <div class="notification-container">
+        <div class="notification-header">
+            <h2>Notifications</h2>
+            <span id="notificationCount" class="count">
+            0
+        </span>
+        </div>
+        <div id="notifications">
+            <div id="emptyMessage" class="empty">
+                <div class="empty-icon">
+                    🔔
+                </div>
+                <p>
+                    No notifications yet.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
 <script>
     let stompClient = null;
+    let notificationCount = 0;
+    const connectionStatus = document.getElementById("connectionStatus");
+    const countElement =
+        document.getElementById("notificationCount");
+    function updateConnectionStatus(connected) {
+        if (connected) {
+            connectionStatus.classList.add("connected");
+            connectionStatus.innerHTML =
+                '<span class="status-dot"></span> Connected';
+        } else {
+            connectionStatus.classList.remove("connected");
+            connectionStatus.innerHTML =
+                '<span class="status-dot"></span> Disconnected';
+        }
+    }
 
     function connect() {
-        const socket = new SockJS('http://localhost:8080/ws');
+        const socket = new SockJS("http://localhost:8080/ws");
         stompClient = Stomp.over(socket);
         stompClient.connect({}, function (frame) {
-            console.log('Connected: ' + frame);
-            stompClient.subscribe('/topic/notifications', function (message) {
-                showNotification(message.body);
-            });
+            console.log(
+                "Connected: " + frame
+            );
+            updateConnectionStatus(true);
+            stompClient.subscribe(
+                "/topic/notifications",
+                function (message) {
+                    showNotification(
+                        message.body
+                    );
+                }
+            );
         }, function (error) {
-            console.error('WebSocket connection error: ' + error);
+            console.error(
+                "WebSocket connection error: " + error
+            );
+            updateConnectionStatus(false);
         });
     }
 
     function showNotification(message) {
-        const notifications = document.getElementById('notifications');
-        const notification = document.createElement('p');
-        notification.textContent = message;
-        notifications.appendChild(notification);
+        const notifications =
+            document.getElementById("notifications");
+        const emptyMessage =
+            document.getElementById("emptyMessage");
+        if (emptyMessage) {
+            emptyMessage.remove();
+        }
+        notificationCount++;
+        countElement.textContent = notificationCount;
+        const notification = document.createElement("div");
+        notification.className =
+            "notification";
+        const icon = document.createElement("div");
+        icon.className = "icon";
+        icon.textContent = "🔔";
+        const content = document.createElement("div");
+        content.className = "notification-content";
+        const messageElement = document.createElement("div");
+        messageElement.className = "notification-message";
+        messageElement.textContent = message;
+        const time = document.createElement("div");
+        time.className = "notification-time";
+        time.textContent = new Date().toLocaleString();
+        content.appendChild(messageElement);
+        content.appendChild(time);
+        notification.appendChild(icon);
+        notification.appendChild(content);
+        notifications.prepend(notification);
     }
 
     connect();
+
 </script>
+
 </body>
 </html>
