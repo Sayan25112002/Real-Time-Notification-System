@@ -11,7 +11,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
-public class MessageResponseDto {
+public class NotificationResponseDto {
 
     private Long id;
 
